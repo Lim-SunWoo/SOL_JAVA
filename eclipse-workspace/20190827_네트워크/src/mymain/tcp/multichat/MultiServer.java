@@ -7,6 +7,8 @@ import java.awt.GridLayout;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -19,6 +21,8 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+
+import mymain.tcp.multichat.serial.Data;
 
 public class MultiServer extends JFrame {
 
@@ -82,7 +86,8 @@ public class MultiServer extends JFrame {
 							// 접속대기
 							Socket child = server.accept();
 
-							ReadThread rt = new ReadThread(child);
+							ReadThread rt = new ReadThread(child); // readthread안에 오브젝트들이 있음.
+
 							socketList.add(rt);
 
 							rt.start();// 쓰레드 구동
@@ -179,16 +184,23 @@ public class MultiServer extends JFrame {
 		public ReadThread(Socket child) {
 			super();
 			this.child = child;
-
 			try {
-				// InputStream->InputStreamReader->BufferdReader
-				InputStreamReader isr = new InputStreamReader(child.getInputStream());
-				br = new BufferedReader(isr);
+				// client측에서 ObjectOtStream을 먼저 생성
+				// 서버측에서는 object~를 생성해야 한다.
+				// *******
+				ois = new ObjectInputStream(child.getInputStream());
+				oos = new ObjectOutputStream(child.getOutputStream());
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 
+			/*
+			 * try { // InputStream->InputStreamReader->BufferdReader InputStreamReader isr
+			 * = new InputStreamReader(child.getInputStream()); br = new
+			 * BufferedReader(isr); } catch (IOException e) { // TODO Auto-generated catch
+			 * block e.printStackTrace(); }
+			 */
 		}
 
 		@Override
@@ -198,21 +210,27 @@ public class MultiServer extends JFrame {
 
 				try {
 					// 데이터 수신
+
+					// ******
+					Data data = (Data) ois.readObject();
+					if (data == null)
+						break;
+
 					String readStr = br.readLine();// 1줄단위로 읽어오기
 					if (readStr == null) {
 						// System.out.println("--정상종료--");
 						break;// 정상종료
 					}
-
-					// 서버 모니터
-					my_display_message(readStr);
-
+					/*
+					 * // 서버 모니터 my_display_message(readStr);
+					 */
 					// 데이터 분리
-					String[] msg_array = readStr.split("#");
-					// readStr = "IN#홍길동"
-					// 0 1
-					// msg_array = {"IN","홍길동"};
-					if (msg_array[0].equals("IN")) {// 입장이면
+					if (data.protocol == Data.IN) { // 입장이면
+
+						/*
+						 * String[] msg_array = readStr.split("#"); // readStr = "IN#홍길동" // 0 1 //
+						 * msg_array = {"IN","홍길동"}; if (msg_array[0].equals("IN")) {// 입장이면
+						 */
 
 						synchronized (syncObj) {
 
@@ -231,14 +249,16 @@ public class MultiServer extends JFrame {
 					} else if (msg_array[0].equals("MSG")) {
 
 						synchronized (syncObj) {
-							// readStr = "MSG#길동#개놈 잘지내냐?"
-							String[] bad_array = { "개놈", "나쁜놈", "썅", "시팔" };
 
-							for (String bad : bad_array) {
-								readStr = readStr.replaceAll(bad, "***");
-							}
+							/*
+							 * // readStr = "MSG#길동#개놈 잘지내냐?" String[] bad_array = { "개놈", "나쁜놈", "썅", "시팔"
+							 * };
+							 * 
+							 * for (String bad : bad_array) { readStr = readStr.replaceAll(bad, "***"); } //
+							 * 모든접속자에게 입장메시지 전달 my_send_message_all(readStr + "\n");
+							 */
 							// 모든접속자에게 입장메시지 전달
-							my_send_message_all(readStr + "\n");
+							my_send_message_all(data);
 						}
 
 					} else if (msg_array[0].equals("DRAW")) {
@@ -256,7 +276,9 @@ public class MultiServer extends JFrame {
 				}
 			} // end-while
 
-			synchronized (syncObj) {
+			synchronized (syncObj)
+
+			{
 				// 퇴장상황
 				// 삭제할 index구하기
 				int del_index = socketList.indexOf(this);
@@ -279,7 +301,15 @@ public class MultiServer extends JFrame {
 				my_send_user_list();
 
 				// 퇴장정보 전달
-				String send_data = String.format("OUT#%s\n", del_nick_name);
+				
+				// *****
+				Data data = new Data();
+				data.protocal = Data.OUT;
+				data.nick_name = del_nick_name;
+				
+				
+				
+				/*String send_data = String.format("OUT#%s\n", del_nick_name);*/
 				my_send_message_all(send_data);
 
 			}
@@ -298,6 +328,11 @@ public class MultiServer extends JFrame {
 	}
 
 	public void my_send_user_list() {
+		
+		Data data = new Data();
+		data.protocol = Data.LIST;
+		data.userList = userList;
+		/*
 		// TODO Auto-generated method stub
 		// user_list = "LIST#길동1#길동2#길동3#\n"
 		StringBuffer sb = new StringBuffer("LIST#");
@@ -312,19 +347,21 @@ public class MultiServer extends JFrame {
 
 		// 현재 접속한 모든 클라이언트에게 전송
 		my_send_message_all(user_list);
-
+*/
 	}
 
 	// IN#\n
 
-	private void my_send_message_all(String message) {
+	private void my_send_message_all(Data data) {
+		// private void my_send_message_all(String message) {
 		// TODO Auto-generated method stub
 		// synchronized (syncObj) {
 		// for(ReadThread rt : socketList) {
 		for (int i = 0; i < socketList.size(); i++) {
 			ReadThread rt = socketList.get(i);
 			try {
-				rt.child.getOutputStream().write(message.getBytes());
+				// rt.child.getOutputStream().write(message.getBytes());
+				rt.oos.writeObject(data);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				// e.printStackTrace();
