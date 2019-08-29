@@ -38,78 +38,72 @@ public class MultiClient extends JFrame {
 	JList<String> jlist_user_list;
 	JTextField jtf_message;
 	JButton jbt_connect;
-	boolean bConnect = false;// 연결여부
+	boolean bConnect = false; // 연결여부
 
-	Font font = new Font("휴먼엑스포", Font.BOLD, 20);
+	Font font = new Font("굴림체", Font.BOLD, 20);
 
 	// 소켓
 	Socket client;
-	String nick_name = "홍길동";
+	String nick_name = "ililili";
 
 	// 그림판
-	JPanel grimPan;
-	Image memPan;
+	JPanel grimPan; // 출력하는 곳
+	Image memPan; // (메모리 그림판) - 그리는 곳 (안지워지게 하기 위해서 img) 더블 버퍼링 기법
 
-	int thick = 5;// 선굵기
-	int line_color = 0;// 선색상
+	int thick = 5;
+	int line_color = 0;
 
 	public MultiClient() {
-		// TODO Auto-generated constructor stub
-		super("MultiChat Client");// JFrame("타이틀") call
+		super("MultiClient"); // JFrame("타이틀") 호출과 같은 기능을 함.
 
-		init_display();// Center
+		init_display(); // Center
 
-		init_user_list();// East
+		init_user_list(); // East
 
-		init_grimpan();// West
+		init_input(); // South 아래
 
-		init_input();// South
+		init_grimpan(); // WEST
 
-		// 위치
-		setLocation(400, 200);
-		// 크기
+		// 위치와 사이즈
+		super.setLocation(400, 200);
 		// setSize(300, 300);
+
 		setResizable(false);
+		pack(); // 클라이언트 크기가 유지 됨.
 
-		pack();
-
-		// 보여줘라
+		// 보이기
 		setVisible(true);
 
 		// 종료처리
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
 		// 메모리 그림판 생성
-		memPan = grimPan.createImage(400, 400);
-
+		memPan = grimPan.createImage(400, 400); // 그림판과 똑같은 이미지를 그림판의 사이즈로 만듬.
 	}
 
 	private void init_grimpan() {
 		// TODO Auto-generated method stub
-		// 익명 class
-		grimPan = new JPanel() {
-
+		grimPan = new JPanel() { // 패널을 다시 그려야할 필요성이 있을 때 다시 호출.
 			@Override
 			protected void paintComponent(Graphics g) {
 				// TODO Auto-generated method stub
-				// Memory 화면내용 여기로 복사
+				// 재정의, 메모리화면 내용을 여기로 복사.
 				g.drawImage(memPan, 0, 0, this);
+
 			}
-		};
-
+		}; // {} -> 객체 생성과 동시에 무언가를 정의. 익명 클래스.
 		grimPan.setPreferredSize(new Dimension(400, 400));
-
 		this.add(grimPan, BorderLayout.WEST);
 
-		// 마우스 이베트
+		// 그림판 내에서 마우스가 눌리면
 		init_mouse_event();
 
 	}
 
 	private void init_mouse_event() {
 		// TODO Auto-generated method stub
+		// 마우스도 리스너와 어답터가 있음.
 		MouseAdapter adapter = new MouseAdapter() {
-
 			@Override
 			public void mouseDragged(MouseEvent e) {
 				// TODO Auto-generated method stub
@@ -119,20 +113,27 @@ public class MultiClient extends JFrame {
 
 				Point pt = e.getPoint();// 눌린위치
 
-				// 전송데이터 포장
-				String send_data = String.format("DRAW#%d#%d#%d#%d\n", pt.x, pt.y, thick, line_color);
-				// 전송
+				// 전송 데이터 포장
+				String send_data = String.format("DRAW#5d#%d#%d#%d\n", pt.x, pt.y, thick, line_color);
+
 				try {
-					client.getOutputStream().write(send_data.getBytes());
+					// 전송
+					client.getOutputStream().write(send_data.getBytes()); // 서버로 전송
 				} catch (IOException e1) {
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
 
+				/*
+				 * // 메모리에 그리기위한 객체 Graphics g = memPan.getGraphics(); g.setColor(new
+				 * Color(line_color));
+				 * 
+				 * g.fillOval(pt.x - thick, pt.y - thick, thick * 2, thick * 2);
+				 * 
+				 * grimPan.repaint();
+				 */
 			}
-
 		};
-
 		// 마우스가 움직일때 발생되는 이벤트 처리
 		grimPan.addMouseMotionListener(adapter);
 
@@ -140,6 +141,7 @@ public class MultiClient extends JFrame {
 
 	private void init_input() {
 		// TODO Auto-generated method stub
+
 		JPanel p = new JPanel(new BorderLayout());
 		jtf_message = new JTextField();
 		jbt_connect = new JButton("연결");
@@ -163,104 +165,108 @@ public class MultiClient extends JFrame {
 		JComboBox<Integer> jcb_thick = new JComboBox<Integer>(thick_array);
 		JButton jbt_color = new JButton("선색상");
 		JButton jbt_clear = new JButton("지우기");
+
 		westP.add(jcb_thick);
 		westP.add(jbt_color);
 		westP.add(jbt_clear);
 
-		// 콤포박스이벤트
+		// 콤보박스 이벤트
 		jcb_thick.addItemListener(new ItemListener() {
+
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				// TODO Auto-generated method stub
-				int state = e.getStateChange();// SELECTED or DESELECTED
+				int state = e.getStateChange();
 				if (state == ItemEvent.SELECTED) {
 					thick = (int) jcb_thick.getSelectedItem();
-					// System.out.println(thick);
+					System.out.println(thick);
 				}
 			}
 		});
 
 		// 선색상 이벤트
 		jbt_color.addActionListener(new ActionListener() {
+
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				// TODO Auto-generated method stub
 				Color color = new Color(line_color);
-				Color sel_color = JColorChooser.showDialog(MultiClient.this, "선색상을 선택하세요", color);
-
+				Color sel_color = JColorChooser.showDialog(MultiClient.this, "선 색상을 선택하세요.", color); // this// 멀티 클라이언트가
+				// 채팅창
+				// 선택된 칼라가 널값이면 그만.
 				if (sel_color == null)
-					return;// 취소 누르면 끝내라
+					return;
+
 				line_color = sel_color.getRGB();
 			}
 		});
 
-		// 지우기
+		// 지우기 버튼
 		jbt_clear.addActionListener(new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				// TODO Auto-generated method stub
-				// 메모리 그림판의 그리기 도구 구하기
 				Graphics g = memPan.getGraphics();
 				g.clearRect(0, 0, 400, 400);
-
-				grimPan.repaint();// paintComponent(Graphics g) Call
+				// ㄴ메모리 그림판 데이터를 지움
+				// 다시 그려라.
+				grimPan.repaint(); // paint component(Graphics g) Call
 
 			}
 		});
 
-		// 키이벤트
-		jtf_message.addKeyListener(new KeyAdapter() {
+		JList<Integer> jList_thick = new JList<Integer>();
 
+		// 키 이벤트
+		jtf_message.addKeyListener(new KeyAdapter() {
 			@Override
 			public void keyPressed(KeyEvent e) {
 				// TODO Auto-generated method stub
-				if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-					my_send_message();
-				}
+				super.keyPressed(e);
+				my_send_message();
+
 			}
 
-		});
+		}); // A.B(C); A에서 B가 발생하면 C에게 위임.
 
-		// 버튼이벤트
+		// 버튼 이벤트
 		jbt_connect.addActionListener(new ActionListener() {
 
 			@Override
-			public void actionPerformed(ActionEvent e) {
+			public void actionPerformed(ActionEvent e) { // 임장과 퇴장에 동기화를 걸어야함.
 				// TODO Auto-generated method stub
-				bConnect = !bConnect;
 
-				if (bConnect) {// 연결
+				bConnect = !bConnect; // 토글
 
+				if (bConnect) { // 연결
 					try {
 						client = new Socket("172.16.7.100", 8000);
 
-						// 입장메시지 전달 : "IN#홍길동\n"
+						// 입장메세지 전달: "IN#홍길동\n"
 						String send_data = String.format("IN#%s\n", nick_name);
 						client.getOutputStream().write(send_data.getBytes());
 
-						// 수신
+						// 데이터 수신
 						my_read_message();
 
 					} catch (Exception e1) {
 						// TODO Auto-generated catch block
 						// e1.printStackTrace();
-						my_display_message("--연결실패--");
+
+						my_display_message("연결실패");
 						bConnect = false;
+
 					}
 
-				} else {// 끊기
-
+				} else { // 끊기
 					try {
-						// 소켓닫기
 						client.close();
 					} catch (IOException e1) {
 						// TODO Auto-generated catch block
 						e1.printStackTrace();
 					}
-
 				}
-
 				// 버튼 캡션변경
 				jbt_connect.setText(bConnect ? "끊기" : "연결");
 
@@ -271,28 +277,33 @@ public class MultiClient extends JFrame {
 
 	protected void my_send_message() {
 		// TODO Auto-generated method stub
-		// 연결되지 않았으면 끝내라
+
+		// 연결되지 않았으면 끝내라.
 		if (bConnect == false)
 			return;
 
 		String message = jtf_message.getText().trim();
 		if (message.isEmpty()) {
-			jtf_message.setText("");// 공백지우기
+			jtf_message.setText(""); // 공백 지우기
+			// 연결을 하면 공백이 많이 들어가도 공백을 제거. (ex. 스페이스 여러번)
 			return;
 		}
-
-		// 전송데이터 포장
+		// 전송 데이터 포장
 		String send_data = String.format("MSG#%s#%s\n", nick_name, message);
-
+		// 서버에서 받을 때 한줄 씩 받음. -> 한줄의 끝을 나타내는 정보 > \n 을 꼭 써야함.
+		// 안그러면 뒤의 데이터와 붙어버림.
 		try {
 			client.getOutputStream().write(send_data.getBytes());
+
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
-		// 이전내용 지우기
+		// 이전 내용 지우기
 		jtf_message.setText("");
+
+		// 서버는 받아서 모든 클라이언트에게 전달. -> 서버로 readmessage
 
 	}
 
@@ -302,39 +313,37 @@ public class MultiClient extends JFrame {
 			InputStreamReader isr = new InputStreamReader(client.getInputStream());
 			BufferedReader br = new BufferedReader(isr);
 
-			// 수신Thread
+			// 수신 스레드
 			new Thread() {
-
 				public void run() {
-
 					while (true) {
-
 						try {
 							String readStr = br.readLine();
 							if (readStr == null)
 								break;
+							// 수신 메세지를 이용해서 처리
+							System.out.println(readStr);
 
-							// 수신메시지이용해서 처리..
-							// System.out.println(readStr);
-							// readStr = "IN#홍길동";
+							// readStr = "IN#"홍길동";
 							// readStr = "OUT#홍길동";
 							// readStr = "MSG#홍길동#잘지내";
-							// readStr = "LIST#홍길동1#홍길동2#";
+							// readStr = "LIST#홍길동1#홍길동2";
 							// readStr = "DRAW#x#y#thick#line_color";
-							String[] msg_array = readStr.split("#");
-							if (msg_array[0].equals("IN")) {
 
-								String msg = String.format("->[%s]님 입장", msg_array[1]);
+							String[] msg_array = readStr.split("#");
+
+							if (msg_array[0].equals("IN")) {
+								// 퇴장과 입장은 전부 이름을 받게 되어있음.
+								String msg = String.format("[%s]님 입장", msg_array[1]);
 								my_display_message(msg);
 
 							} else if (msg_array[0].equals("OUT")) {
-
-								String msg = String.format("<-[%s]님 퇴장", msg_array[1]);
+								String msg = String.format("[%s]님 퇴장", msg_array[1]);
 								my_display_message(msg);
 
 							} else if (msg_array[0].equals("MSG")) {
 
-								// readStr = "MSG#홍길동#잘지내";
+								// readStr = "MSG#홍길동#잘지내#"
 								String msg = String.format("[%s]님 말씀:\r\n   %s", msg_array[1], msg_array[2]);
 								my_display_message(msg);
 
@@ -347,19 +356,19 @@ public class MultiClient extends JFrame {
 								// readStr = "DRAW#x#y#thick#line_color"
 								// 0 1 2 3 4
 								// msg_array = {"DRAW","30","50","15","0"};
-								int x, y, thick1, line_color1;
+								int x, y, thick, line_color;
 
 								try {
 
 									x = Integer.parseInt(msg_array[1]);
 									y = Integer.parseInt(msg_array[2]);
-									thick1 = Integer.parseInt(msg_array[3]);
-									line_color1 = Integer.parseInt(msg_array[4]);
+									thick = Integer.parseInt(msg_array[3]);
+									line_color = Integer.parseInt(msg_array[4]);
 
 									// 메모리 그리기
 									Graphics g = memPan.getGraphics();
-									g.setColor(new Color(line_color1));
-									g.fillOval(x - thick, y - thick, thick1 * 2, thick1 * 2);
+									g.setColor(new Color(line_color));
+									g.fillOval(x - thick, y - thick, thick * 2, thick * 2);
 
 									// 메모리->화면으로
 									grimPan.repaint();
@@ -378,14 +387,15 @@ public class MultiClient extends JFrame {
 
 					} // end-while
 
-					// System.out.println("--socket close--");
-					// 사용자목록 지우고
+					System.out.println("---soket close---"); // 고의든 타의든 소켓이 끊기는 부분
+
+					// 사용자 목록 지우기
 					String[] user_array = new String[0];
 					jlist_user_list.setListData(user_array);
+					// 0개짜리 배열을 이용해서 배열을 지움.
 
 					bConnect = false;
-					jbt_connect.setText("연결");
-
+					jbt_connect.setText("연결"); // 버튼 초기상태
 				}
 
 			}.start();
@@ -399,8 +409,8 @@ public class MultiClient extends JFrame {
 	protected void my_display_user_list(String readStr) {
 		// TODO Auto-generated method stub
 		// readStr = "LIST#홍길동1#홍길동2#";
-		readStr = readStr.replaceAll("LIST#", "");
-		// readStr = "홍길동1#홍길동2#";
+		readStr = readStr.replace("LIST#", ""); // LIST#이라는 문자열이 나오면 ""(제거)로 바꾸라
+		// readStr = "홍길동1#홍길동2#"; 으로 바뀜.
 		jlist_user_list.setListData(readStr.split("#"));
 
 	}
@@ -408,7 +418,6 @@ public class MultiClient extends JFrame {
 	protected void my_display_message(String message) {
 		// TODO Auto-generated method stub
 		jta_display.append(message + "\r\n");
-
 		int position = jta_display.getDocument().getLength();
 		jta_display.setCaretPosition(position);
 
@@ -416,6 +425,7 @@ public class MultiClient extends JFrame {
 
 	private void init_user_list() {
 		// TODO Auto-generated method stub
+
 		jlist_user_list = new JList<String>();
 		JScrollPane jsp = new JScrollPane(jlist_user_list);
 		jsp.setPreferredSize(new Dimension(120, 0));
@@ -444,7 +454,7 @@ public class MultiClient extends JFrame {
 	}
 
 	public static void main(String[] args) {
-		// TODO Auto-generated method stub
 		new MultiClient();
+		// 윈도우를 또 만드려고 할 때 작업의 효울성을 위해 탬플렛을 설정해놓으면 좋음.
 	}
 }
