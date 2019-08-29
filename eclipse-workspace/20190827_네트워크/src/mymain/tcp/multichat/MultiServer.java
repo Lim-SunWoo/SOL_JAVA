@@ -1,0 +1,305 @@
+package mymain.tcp.multichat;
+
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GridLayout;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+
+public class MultiServer extends JFrame {
+
+	JTextArea jta_display; // 메세지 모니터
+	JList<String> jlist_user_list; // 접속자 목록
+	JTextField jtf_user_count; // 접속자 수
+
+	Font font = new Font("굴림체", Font.BOLD, 20);
+
+	// 서버소켓
+	ServerSocket server;
+
+	// 자 소켓 정보를 저장 할 객체
+	List<ReadThread> socketList = new ArrayList<ReadThread>();
+
+	// 접속자 리스트를 저장 관리할 객체
+	List<String> userList = new ArrayList<String>();
+
+	// 쓰레드 동기화 관리객체
+	Object syncObj = new Object();
+	// 동기화 관련 블럭이 끝날때까지 다른 것을 하지 마시오.
+
+	public MultiServer() {
+		super("멀티채팅 서버"); // JFrame("타이틀") 호출과 같은 기능을 함.
+
+		init_display(); // 센터
+		init_user_list(); // 이스트
+		init_user_count(); // 사우스
+
+		init_server();
+
+		// 위치와 사이즈
+		super.setLocation(400, 200);
+		pack();
+
+		// 보이기
+		setVisible(true);
+
+		// 종료처리
+		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+	}
+
+	private void init_server() {
+		// TODO Auto-generated method stub
+		try {
+			server = new ServerSocket(8000);
+
+			/*
+			 * // while (true)가 안되는 이유: 8000번으로 접속하면 여기만 뱅뱅 돔.
+			 * System.out.println(Thread.currentThread()); Socket child = server.accept();
+			 */
+			// 접속대기 스레드 구동
+			new Thread() {
+				public void run() {
+					while (true) { // run이라서 while문으로 계속 돌림.
+						try {
+							// 접속 대기
+							Socket child = server.accept();
+
+							ReadThread rt = new ReadThread(child);
+							socketList.add(rt);
+
+							rt.start(); // Thread 구동
+
+							// 접속자 수 출력
+							my_display_user_count();
+
+						} catch (IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}
+				}
+			}.start();
+
+			jta_display.append("---서버 구동중---\r\n");
+
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	protected void my_display_user_count() {
+		// TODO Auto-generated method stub
+		jtf_user_count.setText(socketList.size() + "");
+
+	}
+
+	private void init_user_count() {
+		// TODO Auto-generated method stub
+		JPanel p = new JPanel(new GridLayout(1, 3));
+
+		JLabel jlb1 = new JLabel("접속자 수:", JLabel.RIGHT);
+
+		jtf_user_count = new JTextField("0");
+
+		JLabel jlb2 = new JLabel("(명)");
+
+		p.add(jlb1);
+		p.add(jtf_user_count);
+		p.add(jlb2);
+
+		this.add(p, BorderLayout.SOUTH);
+
+		jlb1.setFont(font);
+		jtf_user_count.setFont(font);
+		jlb2.setFont(font);
+
+	}
+
+	private void init_user_list() {
+		// TODO Auto-generated method stub
+
+		jlist_user_list = new JList<String>();
+		JScrollPane jsp = new JScrollPane(jlist_user_list);
+		jsp.setPreferredSize(new Dimension(120, 0));
+
+		this.add(jsp, BorderLayout.WEST);
+
+		jlist_user_list.setFont(font);
+
+	}
+
+	private void init_display() {
+		// TODO Auto-generated method stub
+		jta_display = new JTextArea();
+		JScrollPane jsp = new JScrollPane(jta_display);
+
+		jsp.setPreferredSize(new Dimension(400, 400));
+		this.add(jsp, BorderLayout.CENTER);
+
+		// 읽기 전용
+		jta_display.setEditable(false);
+		jta_display.setFont(font);
+	}
+
+	// 수신용스레드(이너클래스)
+	class ReadThread extends Thread {
+
+		Socket child;
+
+		BufferedReader br = null;
+
+		public ReadThread() {
+
+		}
+
+		public ReadThread(Socket child) {
+			super();
+			this.child = child;
+
+			try {
+				// InputStream -> InputstreamReader -> BufferReader
+				InputStreamReader isr = new InputStreamReader(child.getInputStream());
+				br = new BufferedReader(isr);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+		}
+
+		@Override
+		public void run() {
+			// TODO Auto-generated method stub
+			while (true) {
+				try { // unhandle~ try 구문
+						// 데이터 수신
+					String readStr = br.readLine(); // 1줄 단위로 읽어오기
+					if (readStr == null) {
+						System.out.println("--정상종료--");
+						break;
+					}
+					// 서버 모니터
+					my_display_message(readStr);
+
+					// 데이터 분리
+					String[] msg_array = readStr.split("#");
+					// readStr = In#홍길동
+					// msg_array = {"IN" , "홍길동"};
+
+					if (msg_array[0].equals("IN")) {// 입장이면
+
+						synchronized (syncObj) { // 퇴장할 때는 입장을 하지말고 입장할 때는 외장을 하지 말도록 sync함.
+
+							userList.add(msg_array[1]);
+
+							// 접속자 목록 넣기
+							my_display_user_list();
+						}
+
+					}
+
+					// 상대방 소켓이 close를 하게되면 같이 끊김.
+					// While이 끝아면 run이 끝나고 Thread도 소멸.
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					// e.printStackTrace(); // 에러처럼 뜸
+					System.out.println("--비정상종료--");
+					break;
+					// exception에서 break가 발생할 경우 (ex.강종)
+				}
+			} // end while // 접속자수 출력 까지가 퇴장
+
+			synchronized (syncObj) {
+				// 삭제할 index구하기
+				int del_index = socketList.indexOf(this);
+
+				String del_nick_name = userList.get(del_index);
+
+				// 유저 삭제
+				userList.remove(del_index); // 소켓리스트와 유저 리스트는 같음.
+
+				// 접속자 목록 갱신
+				my_display_user_list();
+
+				// 현재 접속자 목록을 클라이언트에게 전송.
+				my_send_user_list();
+
+				// 상대방 소켓이 죽은 상황(퇴장)
+				socketList.remove(this); // 객체가 자기 자신을 가리킬 때 -> this = readThread
+				// 스스로 나옴
+
+				// 접속자 수 출력
+				my_display_user_count();
+
+			}
+		}
+	}
+
+	public void my_display_user_list() {
+		// TODO Auto-generated method stub
+		String[] user_array = new String[userList.size()];
+		userList.toArray(user_array);// ArrayList -> Array
+
+		jlist_user_list.setListData(user_array);
+
+	}
+
+	public void my_send_user_list() {
+		// TODO Auto-generated method stub
+		// String문자를 +하지 말 것. "A"+"B" 같은 연산을 할 경우 A와 B는 버려지고 AB가 새로운 String으로 만들어짐. ->
+		// 메모리의 효율적 관리가 어렵고 날아가는 메모리가 많으므로 낭비가 심함.
+		// heap메모리
+		StringBuffer sb = new StringBuffer("LIST#");
+		for (String nick_name : userList) {
+			sb.append(nick_name);
+			sb.append("#");
+		}
+
+		String user_list = sb.toString();
+
+		// 현재 접속한 모든 클라이언트에게 전송
+		my_send_message_all(user_list);
+		// 접속한 사람들에 대한 정보는 socket list에 있음.
+	}
+
+	private void my_send_message_all(String message) {
+		// TODO Auto-generated method stub
+		for (ReadThread rt : socketList) {
+			try {
+				rt.child.getOutputStream().write(message.getBytes());
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+
+	protected void my_display_message(String message) {
+		// TODO Auto-generated method stub
+		jta_display.append(message + "\r\n");
+		int position = jta_display.getDocument().getLength();
+		jta_display.setCaretPosition(position);
+	}
+
+	// 끝 수신 스레드
+	public static void main(String[] args) {
+		new MultiServer();
+		// 윈도우를 또 만드려고 할 때 작업의 효울성을 위해 탬플렛을 설정해놓으면 좋음.
+	}
+
+}
